@@ -88,7 +88,7 @@ static bool TSVParse( TSV& tsv_out, const char* source )
 			char* c = linestart;
 
 			// find the line break
-			while ( *c != '\n' && *c != '\r' )
+			while ( *c != '\n' && *c != '\r' && *c != 0 )
 				c++;
 
 			// store the line start
@@ -104,7 +104,7 @@ static bool TSVParse( TSV& tsv_out, const char* source )
 			linecount++;
 
 			// find the next line - skip any blank ones
-			while ( *c == '\n' || *c == '\r' )
+			while ( *c == '\n' || *c == '\r' || *c == 0 )
 				c++;
 			
 			read = c;
@@ -124,7 +124,7 @@ static bool TSVParse( TSV& tsv_out, const char* source )
 	{
 		TSV::Line& line = tsv_out.lines[ l ];
 		
-		// count the columsn
+		// count the columns
 		for ( int c=0; c < 2; ++c )
 		{
 			char* ll = line.lineStart;
@@ -150,6 +150,12 @@ static bool TSVParse( TSV& tsv_out, const char* source )
 				tab = strchr( ll, '\t' );
 			}
 			
+			// remember the last one before line break
+			if ( line.columns != NULL )
+				line.columns[ column_count ] = ll;
+			
+			column_count++;
+			
 			// first time, allocate the columns
 			if ( c == 0 )
 			{
@@ -170,6 +176,37 @@ static const char* TSVGetCell( const TSV& tsv, unsigned int x, unsigned int y )
 	
 	const TSV::Line& line = tsv.lines[ y ];
 	return line.columns[ x ];
+}
+
+// given a row 'y', find the column index that exactly matches the given one, write to x_out and return true
+// return false if y is out of bounds
+static bool TSVFindColumn( const TSV& tsv, unsigned int& x_out, unsigned int y, const char* column )
+{
+	if ( y >= tsv.lineCount )
+		return false;
+
+	const TSV::Line& line = tsv.lines[ y ];
+	for ( unsigned int x=0; x < line.columnCount; ++x )
+	{
+		if ( strcmp( column, line.columns[ x ] ) == 0 )
+		{
+			x_out = x;
+			return true;
+		}
+	}
+
+	return false;
+}
+
+// print out the TSV columns separated by |
+static void TSVPrint( const TSV& tsv )
+{
+	for ( int i=0; i < tsv.lineCount; ++i )
+	{
+		for ( int x=0; x < tsv.lines[ i ].columnCount; ++x )
+			printf( "| %s ", tsv.lines[ i ].columns[ x ] );
+		printf( "|\n" );
+	}
 }
 
 #endif

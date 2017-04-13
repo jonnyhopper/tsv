@@ -12,13 +12,13 @@
 //
 struct TSV
 {
-	struct Line
+	struct Row
 	{
-		char*	lineStart;			// the real start of this line in the source buffer
+		char*	lineStart;				// the real start of this line in the source buffer
 		char**	columns;				// each column - will not but NULL but may be zero length
 		int		columnCount;
 		
-		Line()
+		Row()
 		: lineStart( NULL )
 		, columns( NULL )
 		, columnCount( 0 )
@@ -28,16 +28,16 @@ struct TSV
 	
 	// source buffer is modified to add null terminators for each element
 	char* 	source;
-	Line*	lines;
+	Row*	rows;
 	
 	int 	sourceLength;
-	int		lineCount;
+	int		rowCount;
 	
 	TSV()
 	: source( NULL )
-	, lines( NULL )
+	, rows( NULL )
 	, sourceLength( 0 )
-	, lineCount ( 0 )
+	, rowCount ( 0 )
 	{
 	}
 };
@@ -45,14 +45,14 @@ struct TSV
 // clear down the buffers
 static void TSVFree( TSV& tsv )
 {
-	for ( int i=0; i < tsv.lineCount; ++i )
-		delete[] tsv.lines[ i ].columns;
+	for ( int i=0; i < tsv.rowCount; ++i )
+		delete[] tsv.rows[ i ].columns;
 	
-	delete[] tsv.lines;
+	delete[] tsv.rows;
 	delete[] tsv.source;
-	tsv.lines = NULL;
+	tsv.rows = NULL;
 	tsv.source = NULL;
-	tsv.lineCount = 0;
+	tsv.rowCount = 0;
 	tsv.sourceLength = 0;
 }
 
@@ -92,13 +92,13 @@ static bool TSVParse( TSV& tsv_out, const char* source )
 				c++;
 
 			// store the line start
-			if ( tsv_out.lines != NULL )
+			if ( tsv_out.rows != NULL )
 			{
 				// split the line with a NULL terminator
 				*c++ = 0;
 				
 				// record the line start
-				tsv_out.lines[ linecount ].lineStart = linestart;
+				tsv_out.rows[ linecount ].lineStart = linestart;
 			}
 			
 			linecount++;
@@ -112,35 +112,35 @@ static bool TSVParse( TSV& tsv_out, const char* source )
 		
 		if ( l == 0 )
 		{
-			tsv_out.lineCount = linecount;
-			tsv_out.lines = new TSV::Line[ linecount ];
+			tsv_out.rowCount = linecount;
+			tsv_out.rows = new TSV::Row[ linecount ];
 		}
 	}
 	
 	// two passes per line:
 	//  1. count the lines to allocate the line array
 	//  1. split the lines on tabs
-	for ( int l=0; l < tsv_out.lineCount; ++l )
+	for ( int l=0; l < tsv_out.rowCount; ++l )
 	{
-		TSV::Line& line = tsv_out.lines[ l ];
+		TSV::Row& row = tsv_out.rows[ l ];
 		
 		// count the columns
 		for ( int c=0; c < 2; ++c )
 		{
-			char* ll = line.lineStart;
+			char* ll = row.lineStart;
 			int column_count = 0;
 			
 			char* tab = strchr( ll, '\t' );
 			while ( tab )
 			{
 				// second time round, store the columns
-				if ( line.columns != NULL )
+				if ( row.columns != NULL )
 				{
 					// insert null terminator to split the line into columns
 					*tab = NULL;
 					
 					// record the column start
-					line.columns[ column_count ] = ll;
+					row.columns[ column_count ] = ll;
 				}
 				
 				column_count++;
@@ -151,16 +151,16 @@ static bool TSVParse( TSV& tsv_out, const char* source )
 			}
 			
 			// remember the last one before line break
-			if ( line.columns != NULL )
-				line.columns[ column_count ] = ll;
+			if ( row.columns != NULL )
+				row.columns[ column_count ] = ll;
 			
 			column_count++;
 			
 			// first time, allocate the columns
 			if ( c == 0 )
 			{
-				line.columns = new char*[ column_count ];
-				line.columnCount = column_count;
+				row.columns = new char*[ column_count ];
+				row.columnCount = column_count;
 			}
 		}
 		
@@ -171,24 +171,24 @@ static bool TSVParse( TSV& tsv_out, const char* source )
 // 0 indexed cells, return NULL if out of bounds
 static const char* TSVGetCell( const TSV& tsv, unsigned int x, unsigned int y )
 {
-	if ( y >= tsv.lineCount || x >= tsv.lines[ y ].columnCount )
+	if ( y >= tsv.rowCount || x >= tsv.rows[ y ].columnCount )
 		return NULL;
 	
-	const TSV::Line& line = tsv.lines[ y ];
-	return line.columns[ x ];
+	const TSV::Row& row = tsv.rows[ y ];
+	return row.columns[ x ];
 }
 
 // given a row 'y', find the column index that exactly matches the given one, write to x_out and return true
 // return false if y is out of bounds
 static bool TSVFindColumn( const TSV& tsv, unsigned int& x_out, unsigned int y, const char* column )
 {
-	if ( y >= tsv.lineCount )
+	if ( y >= tsv.rowCount )
 		return false;
 
-	const TSV::Line& line = tsv.lines[ y ];
-	for ( unsigned int x=0; x < line.columnCount; ++x )
+	const TSV::Row& row = tsv.rows[ y ];
+	for ( unsigned int x=0; x < row.columnCount; ++x )
 	{
-		if ( strcmp( column, line.columns[ x ] ) == 0 )
+		if ( strcmp( column, row.columns[ x ] ) == 0 )
 		{
 			x_out = x;
 			return true;
@@ -201,10 +201,10 @@ static bool TSVFindColumn( const TSV& tsv, unsigned int& x_out, unsigned int y, 
 // print out the TSV columns separated by |
 static void TSVPrint( const TSV& tsv )
 {
-	for ( int i=0; i < tsv.lineCount; ++i )
+	for ( int i=0; i < tsv.rowCount; ++i )
 	{
-		for ( int x=0; x < tsv.lines[ i ].columnCount; ++x )
-			printf( "| %s ", tsv.lines[ i ].columns[ x ] );
+		for ( int x=0; x < tsv.rows[ i ].columnCount; ++x )
+			printf( "| %s ", tsv.rows[ i ].columns[ x ] );
 		printf( "|\n" );
 	}
 }
